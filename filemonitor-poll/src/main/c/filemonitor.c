@@ -14,14 +14,13 @@ static void handle_error(JNIEnv *env, int codeError) {
 	(*env)->Throw(env, (jthrowable)exceptionObj);
 }
 
-
-JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_getInfo__Ljava_lang_String_2
-		(JNIEnv *env, jobject object, jstring path) {
+JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_getInfo
+		(JNIEnv *env, jobject object, jstring path, jboolean follow_links) {
 
 	struct stat buffer;
 
 	const char *n_path = (*env)->GetStringUTFChars(env, path, 0);
-	int error = lstat(n_path, &buffer);
+	int error = follow_links? stat(n_path, &buffer): lstat(n_path, &buffer);
 	int err = errno;
 	(*env)->ReleaseStringUTFChars(env, path, n_path);
 	if(error) {
@@ -38,7 +37,7 @@ JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_getInfo__Ljava_
 
 
 
-	jclass clazz = (*env)->FindClass(env, "au/id/villar/fsm/poll/Node");
+	jclass clazz = (*env)->FindClass(env, "au/id/villar/fsm/poll/PathInfo");
 	jmethodID initMethod = (*env)->GetMethodID(env, clazz, "<init>", "()V");
 	jobject node = (*env)->NewObject(env, clazz, initMethod);
 

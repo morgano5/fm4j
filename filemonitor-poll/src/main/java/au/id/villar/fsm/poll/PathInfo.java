@@ -1,7 +1,7 @@
 package au.id.villar.fsm.poll;
 
 @SuppressWarnings("unused")
-public class Node {
+public class PathInfo {
 
 	private static int S_IFMT    = 0x170000;   // bit mask for the file type bit fields
 	private static int S_IFSOCK  = 0x140000;   // socket
@@ -108,6 +108,10 @@ public class Node {
 
 	public long getLastStatusChange() {
 		return lastStatusChange;
+	}
+
+	public boolean isDirectory() {
+		return type == 'D';
 	}
 
 	@Override

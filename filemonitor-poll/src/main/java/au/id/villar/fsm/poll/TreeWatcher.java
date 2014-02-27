@@ -3,13 +3,11 @@ package au.id.villar.fsm.poll;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.*;
 
 public class TreeWatcher {
 
@@ -55,21 +53,67 @@ public class TreeWatcher {
 
 
 
+	private class Node {
+		Node parent;
+		long inode;
+		long lastUpdated;
+		String name;
+	}
 
-	private final Path rootDir;
-
-	public TreeWatcher(Path rootDir) {
-		this.rootDir = rootDir;
-		Queue<Path> queue = new LinkedList<>();
+	private class DirNode extends Node {
+		List<Node> children = new ArrayList<>();
 	}
 
 
-	private void registerDir() {}
 
-	private native Node getInfo(String path);
+	private final Path rootDir;
+	private final DirNode rootNode;
+
+	public TreeWatcher(Path rootDir, boolean followLinks) {
+		this.rootDir = rootDir;
+		rootNode = new DirNode();
+		registerDir(rootDir, rootNode, followLinks);
+	}
+
+	private void registerDir(Path path, DirNode parent, boolean followLinks) {
+		try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(path)) {
+			for(Path child: dirStream) {
+				Node childNode;
+System.out.println(child);
+				PathInfo info = getInfo(child.toString(), followLinks);
+				if(info.isDirectory()) {
+					DirNode dirNode = new DirNode();
+					registerDir(child, dirNode, followLinks);
+					childNode = dirNode;
+				} else {
+					childNode = new Node();
+				}
+				childNode.parent = parent;
+				childNode.inode = info.getInode();
+				childNode.lastUpdated = info.getLastModification() * 1000;
+				childNode.name = child.getName(child.getNameCount() - 1).toString();
+				parent.children.add(childNode);
+			}
+		} catch(IOException e) {
+			throw new RuntimeException(e);
+		}
+		Collections.sort(parent.children, new Comparator<Node>() {
+			@Override
+			public int compare(Node o1, Node o2) {
+				return o1.name.compareTo(o2.name);
+			}
+		});
+	}
+
+	private native PathInfo getInfo(String path, boolean followLinks);
 
 
-	public static void main(String[] args) {
+
+
+
+
+
+	public static void main(String[] args) throws InterruptedException {
 
 //		TreeWatcher watcher = new TreeWatcher(Paths.get("/home/villarr/Desktop/testingDir"));
 
@@ -78,8 +122,16 @@ public class TreeWatcher {
 //		System.out.format(">>> %04d-%02d-%02d %02d:%02d:%02d%n", g.get(Calendar.YEAR), g.get(Calendar.MONTH), g.get(Calendar.DAY_OF_MONTH),
 //				g.get(Calendar.HOUR_OF_DAY), g.get(Calendar.MINUTE), g.get(Calendar.SECOND));
 
-		System.out.println(">>> " + new TreeWatcher(null).getInfo(/*"/home/rafael/Desktop/testingDir"*/ "/dev/sda1"));
+//		System.out.println(">>> " + new TreeWatcher(null).getInfo(/*"/home/rafael/Desktop/testingDir"*/ "/dev/sda1"));
 
+		TreeWatcher watcher = new TreeWatcher(Paths.get("/home/rafael"), true);
+		System.out.format("MAX:   %12d%nTOTAL: %12d%nFREE:  %12d%nUSED:  %12d%n",
+				Runtime.getRuntime().maxMemory(),
+				Runtime.getRuntime().totalMemory(),
+				Runtime.getRuntime().freeMemory(),
+				Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
+
+		Thread.sleep(1000);
 	}
 
 
