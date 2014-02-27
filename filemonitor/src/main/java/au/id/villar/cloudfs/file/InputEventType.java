@@ -1,0 +1,14 @@
+package au.id.villar.cloudfs.file;
+
+
+enum InputEventType {
+	NODE_ADDED,
+	NODE_MODIFIED,
+	NODE_DELETED,
+
+	OVERFLOW,
+	CANCELLED_KEY,
+
+	START_LISTENING_FILES,
+	STOP_LISTENING_FILES
+}

@@ -1,0 +1,13 @@
+TODO LIST
+=========
+
+- Create a different artifact per OS
+
+- Support for Windows
+- Support for FreeBSD
+- Support for XOS
+
+- Add listening of single files
+- Add more event types, like "file accessed"
+
+- Add different behaviours if subtrees can't be accessed
