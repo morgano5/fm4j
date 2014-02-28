@@ -64,27 +64,36 @@ public class TreeWatcher {
 		List<Node> children = new ArrayList<>();
 	}
 
+	private class LinkNode extends Node {
+		String link;
+	}
 
 
 	private final Path rootDir;
 	private final DirNode rootNode;
+	//private final
 
-	public TreeWatcher(Path rootDir, boolean followLinks) {
+	public TreeWatcher(Path rootDir, LinkPolicy linkPolicy) {
 		this.rootDir = rootDir;
 		rootNode = new DirNode();
-		registerDir(rootDir, rootNode, followLinks);
+		registerDir(rootDir, rootNode, linkPolicy);
 	}
 
-	private void registerDir(Path path, DirNode parent, boolean followLinks) {
+	private void registerDir(Path path, DirNode parent, LinkPolicy linkPolicy) {
+		boolean followLinks = linkPolicy == LinkPolicy.FOLLOW;
 		try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(path)) {
 			for(Path child: dirStream) {
 				Node childNode;
-System.out.println(child);
+//System.out.println(child); // todo remove this
 				PathInfo info = getInfo(child.toString(), followLinks);
 				if(info.isDirectory()) {
 					DirNode dirNode = new DirNode();
-					registerDir(child, dirNode, followLinks);
+					registerDir(child, dirNode, linkPolicy);
 					childNode = dirNode;
+				} else if(info.isLink()) {
+					LinkNode linkNode = new LinkNode();
+					linkNode.link = readLink(child.toString());
+					childNode = linkNode;
 				} else {
 					childNode = new Node();
 				}
@@ -107,9 +116,11 @@ System.out.println(child);
 
 	private native PathInfo getInfo(String path, boolean followLinks);
 
+	private native String readlink(String path, int size);
 
-
-
+	private String readLink(String path) {
+		return readlink(path, -1);
+	}
 
 
 
@@ -123,13 +134,18 @@ System.out.println(child);
 //				g.get(Calendar.HOUR_OF_DAY), g.get(Calendar.MINUTE), g.get(Calendar.SECOND));
 
 //		System.out.println(">>> " + new TreeWatcher(null).getInfo(/*"/home/rafael/Desktop/testingDir"*/ "/dev/sda1"));
+//		System.out.println(">>> " + new TreeWatcher().readLink("/home/villarr/.wine/dosdevices/c:") + " <<<");
 
-		TreeWatcher watcher = new TreeWatcher(Paths.get("/home/rafael"), true);
-		System.out.format("MAX:   %12d%nTOTAL: %12d%nFREE:  %12d%nUSED:  %12d%n",
+
+		long start = System.currentTimeMillis();
+		System.out.println("Working...");
+		TreeWatcher watcher = new TreeWatcher(Paths.get("/home/villarr"), LinkPolicy.DONT_FOLLOW);
+		System.out.format("MAX:   %12d%nTOTAL: %12d%nFREE:  %12d%nUSED:  %12d%n%nMilliseconds: %d%n",
 				Runtime.getRuntime().maxMemory(),
 				Runtime.getRuntime().totalMemory(),
 				Runtime.getRuntime().freeMemory(),
-				Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
+				Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory(),
+				System.currentTimeMillis() - start);
 
 		Thread.sleep(1000);
 	}

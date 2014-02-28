@@ -110,8 +110,32 @@ public class PathInfo {
 		return lastStatusChange;
 	}
 
+	public boolean isFile() {
+		return type == 'F';
+	}
+
 	public boolean isDirectory() {
 		return type == 'D';
+	}
+
+	public boolean isLink() {
+		return type == 'L';
+	}
+
+	public boolean isCharDevice() {
+		return type == 'C';
+	}
+
+	public boolean isBlockDevice() {
+		return type == 'B';
+	}
+
+	public boolean isPipe() {
+		return type == 'P';
+	}
+
+	public boolean isSocket() {
+		return type == 'S';
 	}
 
 	@Override

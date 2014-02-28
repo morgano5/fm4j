@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -13,6 +14,54 @@ static void handle_error(JNIEnv *env, int codeError) {
 	jobject exceptionObj = (*env)->NewObject(env, clazz, initMethod, message, codeError);
 	(*env)->Throw(env, (jthrowable)exceptionObj);
 }
+
+JNIEXPORT jstring JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_readlink
+		(JNIEnv *env, jobject object, jstring path, jint link_size) {
+
+	int buf_increment = 256;
+	char *buffer = NULL;
+	ssize_t result = -1;
+	int done = 0;
+	jstring link = NULL;
+
+	if(link_size <= 0) {
+		link_size = buf_increment;
+	}
+
+	const char *n_path = (*env)->GetStringUTFChars(env, path, 0);
+
+	while(!done) {
+
+		buffer = malloc(link_size + 1);
+		if(buffer == NULL) {
+			handle_error(env, errno);
+			return NULL;
+		}
+
+		result = readlink(n_path, buffer, link_size);
+		done = 1;
+
+		if(result > 0) {
+			buffer[result] = 0;
+			link = (*env)->NewStringUTF(env, buffer);
+		} else if(result == -1) {
+			if(errno == ENAMETOOLONG) {
+				errno = 0;
+				done = 0;
+				link_size += buf_increment;
+			} else {
+				handle_error(env, errno);
+			}
+		}
+
+		free(buffer);
+	}
+
+	(*env)->ReleaseStringUTFChars(env, path, n_path);
+
+	return link;
+}
+
 
 JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_getInfo
 		(JNIEnv *env, jobject object, jstring path, jboolean follow_links) {
