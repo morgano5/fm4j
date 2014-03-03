@@ -8,12 +8,23 @@
 #include <unistd.h>
 #include "au_id_villar_fsm_poll_TreeWatcher.h"
 
-static void handle_error(JNIEnv *env, int codeError) {
-	char *description = strerror(codeError);
-	jclass clazz = (*env)->FindClass(env, "au/id/villar/fsm/poll/LinuxNativeErrorException");
+static void handle_error(JNIEnv *env, int error_code) {
+
+	char *classname;
+
+	switch(error_code) {
+	case EACCES:  classname = "au/id/villar/fsm/poll/PermissionDeniedException"; break;
+	case ENOENT:  classname = "au/id/villar/fsm/poll/NoSuchFileOrDirectoryException"; break;
+	case ENOTDIR: classname = "au/id/villar/fsm/poll/NotADirException"; break;
+	case EINVAL:  classname = "au/id/villar/fsm/poll/NotALinkException"; break;
+	default: classname = "au/id/villar/fsm/poll/LinuxNativeErrorException";
+	}
+
+	char *description = strerror(error_code);
+	jclass clazz = (*env)->FindClass(env, classname);
 	jmethodID initMethod = (*env)->GetMethodID(env, clazz, "<init>", "(Ljava/lang/String;I)V");
 	jstring message = (*env)->NewStringUTF(env, description);
-	jobject exceptionObj = (*env)->NewObject(env, clazz, initMethod, message, codeError);
+	jobject exceptionObj = (*env)->NewObject(env, clazz, initMethod, message, error_code);
 	(*env)->Throw(env, (jthrowable)exceptionObj);
 }
 
