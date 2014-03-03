@@ -1,4 +1,6 @@
+#include <dirent.h>
 #include <errno.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -13,6 +15,42 @@ static void handle_error(JNIEnv *env, int codeError) {
 	jstring message = (*env)->NewStringUTF(env, description);
 	jobject exceptionObj = (*env)->NewObject(env, clazz, initMethod, message, codeError);
 	(*env)->Throw(env, (jthrowable)exceptionObj);
+}
+
+JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_readDir
+		(JNIEnv *env, jobject object, jstring path) {
+
+	jclass clazz = (*env)->FindClass(env, "java/util/ArrayList");
+	jmethodID initMethod = (*env)->GetMethodID(env, clazz, "<init>", "(I)V");
+	jmethodID addMethod = (*env)->GetMethodID(env, clazz, "add", "(Ljava/lang/Object;)Z");
+	jobject list = (*env)->NewObject(env, clazz, initMethod, 10);
+
+	struct dirent *entry;
+
+	const char *n_path = (*env)->GetStringUTFChars(env, path, 0);
+
+	DIR *dir = opendir(n_path);
+	if(dir == NULL) {
+		handle_error(env, errno);
+		return NULL;
+	}
+
+	(*env)->ReleaseStringUTFChars(env, path, n_path);
+
+	while((errno = 0, entry = readdir(dir)) != NULL) {
+		if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
+			continue;
+		}
+		jstring name = (*env)->NewStringUTF(env, entry->d_name);
+		(*env)->CallBooleanMethod(env, list, addMethod, name);
+	}
+	if(errno != 0) {
+		handle_error(env, errno);
+		return NULL;
+	}
+
+	closedir(dir);
+	return list;
 }
 
 JNIEXPORT jstring JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_readlink

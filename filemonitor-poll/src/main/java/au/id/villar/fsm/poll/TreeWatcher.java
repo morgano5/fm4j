@@ -66,29 +66,33 @@ public class TreeWatcher {
 
 	private class LinkNode extends Node {
 		String link;
+		Node target;
 	}
 
 
 	private final Path rootDir;
-	private final DirNode rootNode;
-	//private final
+	private /*final*/ /*Dir*/Node rootNode;
 
-	public TreeWatcher(Path rootDir, LinkPolicy linkPolicy) {
+	public TreeWatcher(Path rootDir) {
 		this.rootDir = rootDir;
-		rootNode = new DirNode();
-		registerDir(rootDir, rootNode, linkPolicy);
+		this.rootNode = new DirNode();
 	}
 
-	private void registerDir(Path path, DirNode parent, LinkPolicy linkPolicy) {
-		boolean followLinks = linkPolicy == LinkPolicy.FOLLOW;
+	public void start() {
+//		registerDir(rootDir, (DirNode)rootNode);
+		createTree(rootDir);
+	}
+
+
+	private void registerDir(Path path, DirNode parent) {
 		try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(path)) {
 			for(Path child: dirStream) {
 				Node childNode;
 //System.out.println(child); // todo remove this
-				PathInfo info = getInfo(child.toString(), followLinks);
+				PathInfo info = getInfo(child.toString(), false);
 				if(info.isDirectory()) {
 					DirNode dirNode = new DirNode();
-					registerDir(child, dirNode, linkPolicy);
+					registerDir(child, dirNode);
 					childNode = dirNode;
 				} else if(info.isLink()) {
 					LinkNode linkNode = new LinkNode();
@@ -114,14 +118,112 @@ public class TreeWatcher {
 		});
 	}
 
+	private void createTree(Path path) {
+
+		//
+		class NodeQueue {
+			Node node;
+			Path path;
+
+			NodeQueue(Node node, Path path) { this.node = node; this.path = path; }
+		}
+
+		//
+		class LinkNodeQueue extends NodeQueue {
+			Path target;
+
+			LinkNodeQueue(NodeQueue nodeQueue, Path target) {
+				super(nodeQueue.node, nodeQueue.path);
+				this.target = target;
+			}
+		}
+
+
+		Node node;
+		Queue<NodeQueue> nodes = new LinkedList<>();
+		List<Path> linkRoots = new ArrayList<>();
+
+		rootNode = createNode(path, null);
+		nodes.add(new NodeQueue(rootNode, path));
+
+		NodeQueue nodeQueue;
+		while((nodeQueue = nodes.poll()) != null) {
+			node = nodeQueue.node;
+			Path nodePath = nodeQueue.path;
+			if(node instanceof DirNode) {
+				DirNode dirNode = (DirNode)node;
+				List<String> childrenNames = readDir(nodePath.toString());
+				for(String name: childrenNames) {
+					Path newPath = nodePath.resolve(name);
+					Node newNode = createNode(newPath, dirNode);
+					if(newNode != null) {
+						dirNode.children.add(newNode);
+						nodes.add(new NodeQueue(newNode, newPath));
+					}
+				}
+			} else if(node instanceof LinkNode) {
+				LinkNode linkNode = (LinkNode)node;
+				Path target = nodePath.subpath(0, nodePath.getNameCount() - 1).resolve(linkNode.link);
+
+
+
+				System.out.println(">>>> " + nodePath + "  -->  " + target);
+			}
+		}
+	}
+
+	private Node createNode(Path path, DirNode parent) {
+
+//System.out.println(">> " + path); // TODO remove this
+		Node node;
+		PathInfo info;
+		String strPath = path.toString();
+		String name = path.getName(path.getNameCount() - 1).toString();
+
+		try {
+			info = getInfo(strPath);
+		} catch (LinuxNativeErrorException e) {
+			if(e.getErrorCode() == LinuxNativeErrorException.ENOENT) {
+				return null;
+			} else {
+				throw e;
+			}
+		}
+
+		if(info.isFile()) {
+			node = new Node();
+		} else if(info.isDirectory()) {
+			node = new DirNode();
+		} else if(info.isLink()) {
+			LinkNode linkNode = new LinkNode();
+			linkNode.link = readLink(strPath);
+			node = linkNode;
+		} else {
+			// node type not supported
+			return null;
+		}
+		node.inode = info.getInode();
+		node.lastUpdated = info.getLastModification();
+		node.name = name;
+		node.parent = parent;
+		return node;
+	}
+
+
+
 	private native PathInfo getInfo(String path, boolean followLinks);
 
 	private native String readlink(String path, int size);
+
+	private native List<String> readDir(String path);
 
 	private String readLink(String path) {
 		return readlink(path, -1);
 	}
 
+	private PathInfo getInfo(String path) {
+		return getInfo(path, false);
+	}
 
 
 	public static void main(String[] args) throws InterruptedException {
@@ -137,17 +239,22 @@ public class TreeWatcher {
 //		System.out.println(">>> " + new TreeWatcher().readLink("/home/villarr/.wine/dosdevices/c:") + " <<<");
 
 
-		long start = System.currentTimeMillis();
-		System.out.println("Working...");
-		TreeWatcher watcher = new TreeWatcher(Paths.get("/home/villarr"), LinkPolicy.DONT_FOLLOW);
-		System.out.format("MAX:   %12d%nTOTAL: %12d%nFREE:  %12d%nUSED:  %12d%n%nMilliseconds: %d%n",
-				Runtime.getRuntime().maxMemory(),
-				Runtime.getRuntime().totalMemory(),
-				Runtime.getRuntime().freeMemory(),
-				Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory(),
-				System.currentTimeMillis() - start);
+//		long start = System.currentTimeMillis();
+//		System.out.println("Working...");
+//		TreeWatcher watcher = new TreeWatcher(Paths.get(/*"/home/villarr"*/"../../.."));
+//		watcher.start();
+//		System.out.format("MAX:   %12d%nTOTAL: %12d%nFREE:  %12d%nUSED:  %12d%n%nMilliseconds: %d%n",
+//				Runtime.getRuntime().maxMemory(),
+//				Runtime.getRuntime().totalMemory(),
+//				Runtime.getRuntime().freeMemory(),
+//				Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory(),
+//				System.currentTimeMillis() - start);
+//
+//		Thread.sleep(1000);
 
-		Thread.sleep(1000);
+		TreeWatcher watcher = new TreeWatcher(Paths.get(/*"/home/villarr"*/"../../.."));
+		System.out.println(watcher.getInfo("noexisto"));
+
 	}
 
 
