@@ -121,35 +121,36 @@ public class TreeWatcher {
 	private void createTree(Path path) {
 
 		//
-		class NodeQueue {
+		class QueueNode {
 			Node node;
 			Path path;
 
-			NodeQueue(Node node, Path path) { this.node = node; this.path = path; }
+			QueueNode(Node node, Path path) { this.node = node; this.path = path; }
 		}
 
 		//
-		class LinkNodeQueue extends NodeQueue {
+		class LinkQueueNode {
 			Path target;
+			QueueNode queueNode;
 
-			LinkNodeQueue(NodeQueue nodeQueue, Path target) {
-				super(nodeQueue.node, nodeQueue.path);
+			LinkQueueNode(QueueNode queueNode, Path target) {
+				this.queueNode = queueNode;
 				this.target = target;
 			}
 		}
 
 
 		Node node;
-		Queue<NodeQueue> nodes = new LinkedList<>();
-		List<Path> linkRoots = new ArrayList<>();
+		Queue<QueueNode> nodes = new LinkedList<>();
+		List<LinkQueueNode> linkRoots = new LinkedList<>();
 
 		rootNode = createNode(path, null);
-		nodes.add(new NodeQueue(rootNode, path));
+		nodes.add(new QueueNode(rootNode, path));
 
-		NodeQueue nodeQueue;
-		while((nodeQueue = nodes.poll()) != null) {
-			node = nodeQueue.node;
-			Path nodePath = nodeQueue.path;
+		QueueNode queueNode;
+		while((queueNode = nodes.poll()) != null) {
+			node = queueNode.node;
+			Path nodePath = queueNode.path;
 			if(node instanceof DirNode) {
 				DirNode dirNode = (DirNode)node;
 				List<String> childrenNames = readDir(nodePath.toString());
@@ -158,17 +159,33 @@ public class TreeWatcher {
 					Node newNode = createNode(newPath, dirNode);
 					if(newNode != null) {
 						dirNode.children.add(newNode);
-						nodes.add(new NodeQueue(newNode, newPath));
+						nodes.add(new QueueNode(newNode, newPath));
 					}
 				}
 			} else if(node instanceof LinkNode) {
 				LinkNode linkNode = (LinkNode)node;
 				Path target = nodePath.subpath(0, nodePath.getNameCount() - 1).resolve(linkNode.link);
 
-
-
-				System.out.println(">>>> " + nodePath + "  -->  " + target);
+				if(!target.startsWith(rootDir)) {
+					boolean newRoot = true;
+					for(int index = 0; index < linkRoots.size(); index++) {
+						LinkQueueNode linkNodeQueue = linkRoots.get(index);
+						if(target.startsWith(linkNodeQueue.target)) {
+							newRoot = false;
+							break;
+						}
+						if(linkNodeQueue.target.startsWith(target)) {
+							linkRoots.remove(index--);
+						}
+					}
+					if(newRoot) {
+						linkRoots.add(new LinkQueueNode(queueNode, target));
+					}
+				}
 			}
+		}
+		for(LinkQueueNode linkQueueNode: linkRoots) {
+			// TODO
 		}
 	}
 
@@ -253,7 +270,7 @@ public class TreeWatcher {
 //		Thread.sleep(1000);
 
 		TreeWatcher watcher = new TreeWatcher(Paths.get(/*"/home/villarr"*/"../../.."));
-		System.out.println(watcher.getInfo("noexisto"));
+		System.out.println(watcher.readLink("/home/rafael/Desktop/m/link"));
 
 	}
 

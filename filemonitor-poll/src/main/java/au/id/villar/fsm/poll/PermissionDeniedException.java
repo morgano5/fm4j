@@ -1,4 +1,10 @@
 package au.id.villar.fsm.poll;
 
-public class PermissionDeniedException {
+@SuppressWarnings("unused")
+public class PermissionDeniedException extends LinuxNativeErrorException {
+
+	public PermissionDeniedException(String message, int errorCode) {
+		super(message, errorCode);
+	}
+
 }

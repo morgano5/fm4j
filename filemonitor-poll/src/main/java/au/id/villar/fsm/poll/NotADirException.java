@@ -1,4 +1,9 @@
 package au.id.villar.fsm.poll;
 
-public class NotADirException {
+@SuppressWarnings("unused")
+public class NotADirException extends LinuxNativeErrorException {
+
+	public NotADirException(String message, int errorCode) {
+		super(message, errorCode);
+	}
 }

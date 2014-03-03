@@ -1,4 +1,9 @@
 package au.id.villar.fsm.poll;
 
-public class NoSuchFileOrDirectoryException {
+@SuppressWarnings("unused")
+public class NoSuchFileOrDirectoryException extends LinuxNativeErrorException {
+
+	public NoSuchFileOrDirectoryException(String message, int errorCode) {
+		super(message, errorCode);
+	}
 }
