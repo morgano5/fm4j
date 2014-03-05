@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
 public class TreeWatcher {
@@ -72,7 +73,9 @@ public class TreeWatcher {
 		String link;
 	}
 
-	class QueueNode { Node node; Path path;
+	class QueueNode {
+		Node node;
+		Path path;
 		QueueNode(Node node, Path path) { this.node = node; this.path = path; }
 	}
 
@@ -83,6 +86,7 @@ public class TreeWatcher {
 	private final boolean followLinks;
 	private final Pattern[] ignorePatterns;
 	private final List<TreeListener> listeners = new ArrayList<>();
+	private final Queue<FileEvent> events = new LinkedBlockingQueue<>();
 
 	private Node rootNode;
 
@@ -206,6 +210,46 @@ public class TreeWatcher {
 		node.lastUpdated = info.getLastModification();
 		node.name = name;
 		return node;
+	}
+
+	private void monitorTree() {
+
+		Node node;
+		QueueNode queueNode;
+		Queue<QueueNode> nodes = new LinkedList<>();
+
+		nodes.add(new QueueNode(rootNode, rootDir));
+
+		while((queueNode = nodes.poll()) != null) {
+
+			node = queueNode.node;
+			Path nodePath = queueNode.path;
+
+			if(node instanceof DirNode) {
+				DirNode dirNode = (DirNode)node;
+				try {
+					for(String name: readDir(nodePath.toString())) {
+						Path newPath = nodePath.resolve(name);
+						boolean ignorePath = false;
+						for(Pattern ignorePattern: ignorePatterns) {
+							if(ignorePattern.matcher(newPath.toString()).matches()) {
+								ignorePath = true;
+								break;
+							}
+						}
+						if(!ignorePath) {
+							Node newNode = createNode(newPath);
+							if(newNode != null) {
+								dirNode.children.add(newNode);
+								newNode.parent = dirNode;
+								nodes.add(new QueueNode(newNode, newPath));
+							}
+						}
+					}
+				} catch(NoSuchFileOrDirectoryException | NotADirException ignore) {
+				}
+			}
+		}
 	}
 
 
