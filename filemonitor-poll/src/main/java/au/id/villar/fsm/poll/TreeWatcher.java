@@ -57,7 +57,6 @@ public class TreeWatcher {
 	/* Utility classes: file info is stored in a form of a tree, that reflects a sort of  snapshot of the
 	*/
 
-	// Contains
 	private class Node {
 		Node parent;
 		long inode;
@@ -73,11 +72,21 @@ public class TreeWatcher {
 		String link;
 	}
 
-	class QueueNode {
+	private class QueueNode {
 		Node node;
 		Path path;
 		QueueNode(Node node, Path path) { this.node = node; this.path = path; }
 	}
+
+	private class ByNameComparator implements Comparator<Node> {
+		@Override
+		public int compare(Node o1, Node o2) {
+			return o1.name.compareTo(o2.name);
+		}
+	}
+
+	private ByNameComparator byNameComparator = new ByNameComparator();
+
 
 
 
@@ -89,12 +98,13 @@ public class TreeWatcher {
 	private final Queue<FileEvent> events = new LinkedBlockingQueue<>();
 
 	private Node rootNode;
+	private Map<Long, Node> inodeToNode;
 
 	public TreeWatcher(Path rootDir, boolean followLinks) {
 		this.rootDir = rootDir;
 		this.followLinks = followLinks;
 		this.ignorePatterns = new Pattern[0];
-		createTree();
+		createTree2();
 	}
 
 	public TreeWatcher(Path rootDir, boolean followLinks, String ... ignorePatterns) {
@@ -105,14 +115,14 @@ public class TreeWatcher {
 		for(String pattern: ignorePatterns) {
 			this.ignorePatterns[index++] = Pattern.compile(pattern);
 		}
-		createTree();
+		createTree2();
 	}
 
 	public TreeWatcher(Path rootDir, boolean followLinks, Pattern ... ignorePatterns) {
 		this.rootDir = rootDir;
 		this.followLinks = followLinks;
 		this.ignorePatterns = ignorePatterns;
-		createTree();
+		createTree2();
 	}
 
 
@@ -171,6 +181,7 @@ public class TreeWatcher {
 							}
 						}
 					}
+					Collections.sort(dirNode.children, byNameComparator);
 				} catch(NoSuchFileOrDirectoryException | NotADirException ignore) {
 				}
 			}
@@ -179,13 +190,15 @@ public class TreeWatcher {
 
 	private Node createNode(Path path) {
 
+//System.out.println(">> " + path); // TODO delete
+
 		Node node;
 		PathInfo info;
 		String strPath = path.toString();
 		String name = path.getName(path.getNameCount() - 1).toString();
 
 		try {
-			info = getInfo(strPath, followLinks);
+			info = getInfo(strPath);
 		} catch (NoSuchFileOrDirectoryException | NotADirException e) {
 			return null;
 		}
@@ -212,44 +225,84 @@ public class TreeWatcher {
 		return node;
 	}
 
-	private void monitorTree() {
 
-		Node node;
+
+
+	private enum ProcessResult { CONTINUE, REPEAT_TREE, ABORT }
+
+	private interface TreeProcessor {
+		ProcessResult processNode(QueueNode queueNode, Queue<QueueNode> queue);
+	}
+
+	private void processTree(TreeProcessor treeProcessor) {
 		QueueNode queueNode;
-		Queue<QueueNode> nodes = new LinkedList<>();
 
+		Queue<QueueNode> nodes = new LinkedList<>();
+		Queue<QueueNode> removedNodes = new LinkedList<>();
 		nodes.add(new QueueNode(rootNode, rootDir));
 
+		iteration:
 		while((queueNode = nodes.poll()) != null) {
-
-			node = queueNode.node;
-			Path nodePath = queueNode.path;
-
-			if(node instanceof DirNode) {
-				DirNode dirNode = (DirNode)node;
-				try {
-					for(String name: readDir(nodePath.toString())) {
-						Path newPath = nodePath.resolve(name);
-						boolean ignorePath = false;
-						for(Pattern ignorePattern: ignorePatterns) {
-							if(ignorePattern.matcher(newPath.toString()).matches()) {
-								ignorePath = true;
-								break;
-							}
-						}
-						if(!ignorePath) {
-							Node newNode = createNode(newPath);
-							if(newNode != null) {
-								dirNode.children.add(newNode);
-								newNode.parent = dirNode;
-								nodes.add(new QueueNode(newNode, newPath));
-							}
-						}
-					}
-				} catch(NoSuchFileOrDirectoryException | NotADirException ignore) {
+			try {
+				ProcessResult result = treeProcessor.processNode(queueNode, nodes);
+				switch (result) {
+					case CONTINUE: continue;
+					case ABORT: break iteration;
+					case REPEAT_TREE:
+						nodes = new LinkedList<>();
+						nodes.add(new QueueNode(rootNode, rootDir));
+						break;
 				}
+			} catch(Exception e) {
+				// TODO
+				e.printStackTrace();
 			}
 		}
+	}
+
+
+	private void createTree2() {
+
+		rootNode = createNode(rootDir);
+
+		processTree(new TreeProcessor() {
+
+			@Override
+			public ProcessResult processNode(QueueNode queueNode, Queue<QueueNode> queue) {
+				Node node = queueNode.node;
+				Path nodePath = queueNode.path;
+
+				if(node instanceof DirNode) {
+					DirNode dirNode = (DirNode)node;
+					try {
+						for(String name: readDir(nodePath.toString())) {
+							Path newPath = nodePath.resolve(name);
+							boolean ignorePath = false;
+							for(Pattern ignorePattern: ignorePatterns) {
+								if(ignorePattern.matcher(newPath.toString()).matches()) {
+									ignorePath = true;
+									break;
+								}
+							}
+							if(!ignorePath) {
+								Node newNode = createNode(newPath);
+								if(newNode != null) {
+									dirNode.children.add(newNode);
+									newNode.parent = dirNode;
+									queue.add(new QueueNode(newNode, newPath));
+								}
+							}
+						}
+						Collections.sort(dirNode.children, byNameComparator);
+					} catch(NoSuchFileOrDirectoryException | NotADirException ignore) {
+					}
+				}
+				return ProcessResult.CONTINUE;
+			}
+
+		});
+
+
 	}
 
 
@@ -262,6 +315,10 @@ public class TreeWatcher {
 
 	private String readLink(String path) {
 		return readlink(path, -1);
+	}
+
+	private PathInfo getInfo(String path) {
+		return getInfo(path, followLinks);
 	}
 
 
