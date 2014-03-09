@@ -153,6 +153,8 @@ public class TreeWatcher {
 		Queue<QueueNode> nodes = new LinkedList<>();
 
 		rootNode = createNode(rootDir);
+		inodeToNode = new HashMap<>();
+		inodeToNode.put(rootNode.inode, rootNode);
 		nodes.add(new QueueNode(rootNode, rootDir));
 
 		while((queueNode = nodes.poll()) != null) {
@@ -178,6 +180,7 @@ public class TreeWatcher {
 								dirNode.children.add(newNode);
 								newNode.parent = dirNode;
 								nodes.add(new QueueNode(newNode, newPath));
+								inodeToNode.put(newNode.inode, newNode);
 							}
 						}
 					}
@@ -220,7 +223,7 @@ public class TreeWatcher {
 			return null;
 		}
 		node.inode = info.getInode();
-		node.lastUpdated = info.getLastModification();
+		node.lastUpdated = info.getLastStatusChange();
 		node.name = name;
 		return node;
 	}
@@ -238,7 +241,6 @@ public class TreeWatcher {
 		QueueNode queueNode;
 
 		Queue<QueueNode> nodes = new LinkedList<>();
-		Queue<QueueNode> removedNodes = new LinkedList<>();
 		nodes.add(new QueueNode(rootNode, rootDir));
 
 		iteration:
@@ -264,6 +266,8 @@ public class TreeWatcher {
 	private void createTree2() {
 
 		rootNode = createNode(rootDir);
+		inodeToNode = new HashMap<>();
+		inodeToNode.put(rootNode.inode, rootNode);
 
 		processTree(new TreeProcessor() {
 
@@ -290,6 +294,7 @@ public class TreeWatcher {
 									dirNode.children.add(newNode);
 									newNode.parent = dirNode;
 									queue.add(new QueueNode(newNode, newPath));
+									inodeToNode.put(newNode.inode, newNode);
 								}
 							}
 						}
@@ -302,6 +307,34 @@ public class TreeWatcher {
 
 		});
 
+
+	}
+
+	private void monitorTree() {
+
+
+		processTree(new TreeProcessor() {
+
+			@Override
+			public ProcessResult processNode(QueueNode queueNode, Queue<QueueNode> queue) {
+				Node node = queueNode.node;
+				Path nodePath = queueNode.path;
+				PathInfo info = getInfo(nodePath.toString());
+
+				if(node instanceof DirNode) {
+					if(node.lastUpdated != info.getLastStatusChange()) {
+
+					}
+
+
+				} else {
+
+				}
+				// TODO implement
+				return null;
+			}
+
+		});
 
 	}
 
