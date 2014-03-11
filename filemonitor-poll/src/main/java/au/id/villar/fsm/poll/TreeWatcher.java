@@ -54,40 +54,6 @@ public class TreeWatcher {
 	}
 
 
-	/* Utility classes: file info is stored in a form of a tree, that reflects a sort of  snapshot of the
-	*/
-
-	private class Node {
-		Node parent;
-		long inode;
-		long lastUpdated;
-		String name;
-	}
-
-	private class DirNode extends Node {
-		List<Node> children = new ArrayList<>();
-	}
-
-	private class LinkNode extends Node {
-		String link;
-	}
-
-	private class QueueNode {
-		Node node;
-		Path path;
-		QueueNode(Node node, Path path) { this.node = node; this.path = path; }
-	}
-
-	private class ByNameComparator implements Comparator<Node> {
-		@Override
-		public int compare(Node o1, Node o2) {
-			return o1.name.compareTo(o2.name);
-		}
-	}
-
-	private ByNameComparator byNameComparator = new ByNameComparator();
-
-
 
 
 
@@ -97,14 +63,13 @@ public class TreeWatcher {
 	private final List<TreeListener> listeners = new ArrayList<>();
 	private final Queue<FileEvent> events = new LinkedBlockingQueue<>();
 
-	private Node rootNode;
-	private Map<Long, Node> inodeToNode;
+	private final FileTree tree;
 
 	public TreeWatcher(Path rootDir, boolean followLinks) {
 		this.rootDir = rootDir;
 		this.followLinks = followLinks;
 		this.ignorePatterns = new Pattern[0];
-		createTree2();
+		tree = new FileTree(rootDir, followLinks, ignorePatterns);
 	}
 
 	public TreeWatcher(Path rootDir, boolean followLinks, String ... ignorePatterns) {
@@ -115,14 +80,14 @@ public class TreeWatcher {
 		for(String pattern: ignorePatterns) {
 			this.ignorePatterns[index++] = Pattern.compile(pattern);
 		}
-		createTree2();
+		tree = new FileTree(rootDir, followLinks, this.ignorePatterns);
 	}
 
 	public TreeWatcher(Path rootDir, boolean followLinks, Pattern ... ignorePatterns) {
 		this.rootDir = rootDir;
 		this.followLinks = followLinks;
 		this.ignorePatterns = ignorePatterns;
-		createTree2();
+		tree = new FileTree(rootDir, followLinks, ignorePatterns);
 	}
 
 
@@ -146,213 +111,14 @@ public class TreeWatcher {
 		}
 	}
 
-	private void createTree() {
 
-		Node node;
-		QueueNode queueNode;
-		Queue<QueueNode> nodes = new LinkedList<>();
-
-		rootNode = createNode(rootDir);
-		inodeToNode = new HashMap<>();
-		inodeToNode.put(rootNode.inode, rootNode);
-		nodes.add(new QueueNode(rootNode, rootDir));
-
-		while((queueNode = nodes.poll()) != null) {
-
-			node = queueNode.node;
-			Path nodePath = queueNode.path;
-
-			if(node instanceof DirNode) {
-				DirNode dirNode = (DirNode)node;
-				try {
-					for(String name: readDir(nodePath.toString())) {
-						Path newPath = nodePath.resolve(name);
-						boolean ignorePath = false;
-						for(Pattern ignorePattern: ignorePatterns) {
-							if(ignorePattern.matcher(newPath.toString()).matches()) {
-								ignorePath = true;
-								break;
-							}
-						}
-						if(!ignorePath) {
-							Node newNode = createNode(newPath);
-							if(newNode != null) {
-								dirNode.children.add(newNode);
-								newNode.parent = dirNode;
-								nodes.add(new QueueNode(newNode, newPath));
-								inodeToNode.put(newNode.inode, newNode);
-							}
-						}
-					}
-					Collections.sort(dirNode.children, byNameComparator);
-				} catch(NoSuchFileOrDirectoryException | NotADirException ignore) {
-				}
-			}
-		}
-	}
-
-	private Node createNode(Path path) {
-
-//System.out.println(">> " + path); // TODO delete
-
-		Node node;
-		PathInfo info;
-		String strPath = path.toString();
-		String name = path.getName(path.getNameCount() - 1).toString();
-
-		try {
-			info = getInfo(strPath);
-		} catch (NoSuchFileOrDirectoryException | NotADirException e) {
-			return null;
-		}
-
-		if(info.isFile()) {
-			node = new Node();
-		} else if(info.isDirectory()) {
-			node = new DirNode();
-		} else if(info.isLink()) {
-			LinkNode linkNode = new LinkNode();
-			try {
-				linkNode.link = readLink(strPath);
-			} catch (NoSuchFileOrDirectoryException | NotADirException e) {
-				return null;
-			}
-			node = linkNode;
-		} else {
-			// node type not supported
-			return null;
-		}
-		node.inode = info.getInode();
-		node.lastUpdated = info.getLastStatusChange();
-		node.name = name;
-		return node;
-	}
-
-
-
-
-	private enum ProcessResult { CONTINUE, REPEAT_TREE, ABORT }
-
-	private interface TreeProcessor {
-		ProcessResult processNode(QueueNode queueNode, Queue<QueueNode> queue);
-	}
-
-	private void processTree(TreeProcessor treeProcessor) {
-		QueueNode queueNode;
-
-		Queue<QueueNode> nodes = new LinkedList<>();
-		nodes.add(new QueueNode(rootNode, rootDir));
-
-		iteration:
-		while((queueNode = nodes.poll()) != null) {
-			try {
-				ProcessResult result = treeProcessor.processNode(queueNode, nodes);
-				switch (result) {
-					case CONTINUE: continue;
-					case ABORT: break iteration;
-					case REPEAT_TREE:
-						nodes = new LinkedList<>();
-						nodes.add(new QueueNode(rootNode, rootDir));
-						break;
-				}
-			} catch(Exception e) {
-				// TODO
-				e.printStackTrace();
-			}
-		}
-	}
-
-
-	private void createTree2() {
-
-		rootNode = createNode(rootDir);
-		inodeToNode = new HashMap<>();
-		inodeToNode.put(rootNode.inode, rootNode);
-
-		processTree(new TreeProcessor() {
-
-			@Override
-			public ProcessResult processNode(QueueNode queueNode, Queue<QueueNode> queue) {
-				Node node = queueNode.node;
-				Path nodePath = queueNode.path;
-
-				if(node instanceof DirNode) {
-					DirNode dirNode = (DirNode)node;
-					try {
-						for(String name: readDir(nodePath.toString())) {
-							Path newPath = nodePath.resolve(name);
-							boolean ignorePath = false;
-							for(Pattern ignorePattern: ignorePatterns) {
-								if(ignorePattern.matcher(newPath.toString()).matches()) {
-									ignorePath = true;
-									break;
-								}
-							}
-							if(!ignorePath) {
-								Node newNode = createNode(newPath);
-								if(newNode != null) {
-									dirNode.children.add(newNode);
-									newNode.parent = dirNode;
-									queue.add(new QueueNode(newNode, newPath));
-									inodeToNode.put(newNode.inode, newNode);
-								}
-							}
-						}
-						Collections.sort(dirNode.children, byNameComparator);
-					} catch(NoSuchFileOrDirectoryException | NotADirException ignore) {
-					}
-				}
-				return ProcessResult.CONTINUE;
-			}
-
-		});
-
-
-	}
 
 	private void monitorTree() {
 
 
-		processTree(new TreeProcessor() {
-
-			@Override
-			public ProcessResult processNode(QueueNode queueNode, Queue<QueueNode> queue) {
-				Node node = queueNode.node;
-				Path nodePath = queueNode.path;
-				PathInfo info = getInfo(nodePath.toString());
-
-				if(node instanceof DirNode) {
-					if(node.lastUpdated != info.getLastStatusChange()) {
-
-					}
-
-
-				} else {
-
-				}
-				// TODO implement
-				return null;
-			}
-
-		});
 
 	}
 
-
-
-	private native PathInfo getInfo(String path, boolean followLinks);
-
-	private native String readlink(String path, int size);
-
-	private native List<String> readDir(String path);
-
-	private String readLink(String path) {
-		return readlink(path, -1);
-	}
-
-	private PathInfo getInfo(String path) {
-		return getInfo(path, followLinks);
-	}
 
 
 	private class MonitorThread extends Thread {

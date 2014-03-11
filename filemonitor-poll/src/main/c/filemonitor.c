@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "au_id_villar_fsm_poll_TreeWatcher.h"
+#include "au_id_villar_fsm_poll_FileTree.h"
 
 static void handle_error(JNIEnv *env, int error_code) {
 
@@ -28,7 +28,7 @@ static void handle_error(JNIEnv *env, int error_code) {
 	(*env)->Throw(env, (jthrowable)exceptionObj);
 }
 
-JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_readDir
+JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_FileTree_readDir
 		(JNIEnv *env, jobject object, jstring path) {
 
 	jclass clazz = (*env)->FindClass(env, "java/util/ArrayList");
@@ -64,7 +64,7 @@ JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_readDir
 	return list;
 }
 
-JNIEXPORT jstring JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_readlink
+JNIEXPORT jstring JNICALL Java_au_id_villar_fsm_poll_FileTree_readlink
 		(JNIEnv *env, jobject object, jstring path, jint link_size) {
 
 	int buf_increment = 256;
@@ -112,7 +112,7 @@ JNIEXPORT jstring JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_readlink
 }
 
 
-JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_TreeWatcher_getInfo
+JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_FileTree_getInfo
 		(JNIEnv *env, jobject object, jstring path, jboolean follow_links) {
 
 	struct stat buffer;

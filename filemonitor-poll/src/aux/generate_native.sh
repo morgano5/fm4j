@@ -28,12 +28,12 @@ makedir c_headers
 
 # --- compiling class with native methods
 javac -sourcepath ../src/main/java -d classes \
-	../src/main/java/au/id/villar/fsm/poll/TreeWatcher.java ||
+	../src/main/java/au/id/villar/fsm/poll/FileTree.java ||
 	exit_error "javac returned $?"
 
 # --- generating header file
 javah -cp classes -d c_headers \
-	au.id.villar.fsm.poll.TreeWatcher ||
+	au.id.villar.fsm.poll.FileTree ||
 	exit_error "javah returned $?"
 
 # --- compiling shared library
