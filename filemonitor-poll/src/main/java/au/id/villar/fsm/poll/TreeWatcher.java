@@ -61,7 +61,6 @@ public class TreeWatcher {
 	private final boolean followLinks;
 	private final Pattern[] ignorePatterns;
 	private final List<TreeListener> listeners = new ArrayList<>();
-	private final Queue<FileEvent> events = new LinkedBlockingQueue<>();
 
 	private final FileTree tree;
 
@@ -92,7 +91,7 @@ public class TreeWatcher {
 
 
 	public void start() {
-
+new MonitorThread().start();
 	}
 
 	public void stop() {
@@ -131,7 +130,17 @@ public class TreeWatcher {
 		@Override
 		public void run() {
 			while(!this.isInterrupted()) {
+				try {
+					Thread.sleep(5000);
+					FileTree newTree = new FileTree(rootDir, followLinks, ignorePatterns);
+					List<FileEvent> changes =  tree.getChanges(newTree);
+					for (TreeListener listener: listeners) {
+						for(FileEvent event: changes) {
+							listener.fileChanged(event);
+						}
+					}
 
+				} catch(InterruptedException e) {}
 				// todo
 			}
 		}
@@ -157,20 +166,33 @@ public class TreeWatcher {
 
 		long start = System.currentTimeMillis();
 		System.out.println("Working...");
-		TreeWatcher watcher = new TreeWatcher(Paths.get(/**/"/home/villarr"/*/"../../.."/**/), true, "/home/villarr/\\..*");
+		TreeWatcher watcher = new TreeWatcher(Paths.get(/**/"/home/rafael/Desktop/testingDir"/*/"../../.."/**/), true, "/home/rafael/Desktop/testingDir/\\..*");
+		watcher.addListener(new TreeListener() {
+			@Override
+			public void fileChanged(FileEvent event) {
+				if(event.getType() == EventType.FILE_MOVED) {
+					System.out.format(">> %s -- %s   -->   %s%n", event.getType().toString(), event.getOldPath(), event.getPath());
+				} else {
+					System.out.format(">> %s -- %s%n", event.getType().toString(), event.getPath());
+				}
+
+			}
+		});
 		watcher.start();
 
-		System.gc();
-		Thread.sleep(2000);
+while(true) { Thread.sleep(1000); }
 
-		System.out.format("MAX:   %12d%nTOTAL: %12d%nFREE:  %12d%nUSED:  %12d%n%nMilliseconds: %d%n",
-				Runtime.getRuntime().maxMemory(),
-				Runtime.getRuntime().totalMemory(),
-				Runtime.getRuntime().freeMemory(),
-				Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory(),
-				System.currentTimeMillis() - start);
-
-		Thread.sleep(1000);
+//		System.gc();
+//		Thread.sleep(2000);
+//
+//		System.out.format("MAX:   %12d%nTOTAL: %12d%nFREE:  %12d%nUSED:  %12d%n%nMilliseconds: %d%n",
+//				Runtime.getRuntime().maxMemory(),
+//				Runtime.getRuntime().totalMemory(),
+//				Runtime.getRuntime().freeMemory(),
+//				Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory(),
+//				System.currentTimeMillis() - start);
+//
+//		Thread.sleep(1000);
 
 //		TreeWatcher watcher = new TreeWatcher(Paths.get(/*"/home/villarr"*/"../../.."));
 //		System.out.println(watcher.readLink("/home/rafael/Desktop/m/link"));
