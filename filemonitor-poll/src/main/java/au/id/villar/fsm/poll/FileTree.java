@@ -1,7 +1,6 @@
 package au.id.villar.fsm.poll;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -41,7 +40,7 @@ class FileTree {
 		createTree();
 	}
 
-	public List<FileEvent> getChanges(FileTree newer) {
+	List<FileEvent> updateAndGetChanges(FileTree newer) {
 		List<FileEvent> fileEvents = new ArrayList<>();
 		compareDirs(rootNode, newer.rootNode, inodeToNode, newer.inodeToNode, fileEvents);
 		return fileEvents;
@@ -67,11 +66,12 @@ class FileTree {
 	private void compareDirs(DirNode oldNode, DirNode newNode, Map<Long, Node> oldInodes, Map<Long, Node> newInodes,
 							 List<FileEvent> fileEvents) {
 
-		int oldIndex = 0;
-		int newIndex = 0;
+		Iterator<Node> oldNodes = new ArrayList<>(oldNode.children).iterator();
+		Iterator<Node> newNodes = new ArrayList<>(newNode.children).iterator();
 
-		Node oldChild = get(oldNode, oldIndex++);
-		Node newChild = get(newNode, newIndex++);
+
+		Node oldChild = next(oldNodes);
+		Node newChild = next(newNodes);
 
 		while(oldChild != null && newChild != null) {
 			int nameComp = oldChild.name.compareTo(newChild.name);
@@ -92,27 +92,36 @@ class FileTree {
 						handleMovedToDirOrAdded(oldInodes, newChild, oldNode, fileEvents);
 					}
 				}
-				oldChild = get(oldNode, oldIndex++);
-				newChild = get(newNode, newIndex++);
+				oldChild = next(oldNodes);
+				newChild = next(newNodes);
 			} else if(nameComp > 0) {
 				handleMovedToDirOrAdded(oldInodes, newChild, oldNode, fileEvents);
-				newChild = get(newNode, newIndex++);
+				newChild = next(newNodes);
 			} else {
 				handleMovedFromDirOrDeleted(newInodes, oldInodes, oldChild, oldNode, fileEvents);
-				oldChild = get(oldNode, oldIndex++);
+				oldChild = next(oldNodes);
 			}
-
+		}
+		while(oldChild != null) {
+			handleMovedFromDirOrDeleted(newInodes, oldInodes, oldChild, oldNode, fileEvents);
+			oldChild = next(oldNodes);
+		}
+		while(newChild != null) {
+			handleMovedToDirOrAdded(oldInodes, newChild, oldNode, fileEvents);
+			newChild = next(newNodes);
 		}
 	}
 
-	private Node get(DirNode node, int index) {
-		return node.children.size() > index? node.children.get(index): null;
+	private <T> T next(Iterator<T> iterator) {
+		return iterator.hasNext()? iterator.next(): null;
 	}
 
 	private void handleMovedToDirOrAdded(Map<Long, Node> oldInodes, Node newChild, DirNode oldDir,
 										 List<FileEvent> fileEvents) {
 		Node node;
 		if((node = oldInodes.get(newChild.inode)) != null) {
+
+			// node was moved to current dir
 			Path oldPath = nodeToPath(node);
 			DirNode parent = node.parent;
 			parent.children.remove(node);
@@ -120,29 +129,51 @@ class FileTree {
 			oldDir.children.add(node);
 			node.lastUpdated = newChild.lastUpdated;
 			node.name  = newChild.name;
+			Collections.sort(oldDir.children, byNameComparator);
 			Path newPath = nodeToPath(node);
 			fileEvents.add(new FileEvent(EventType.FILE_MOVED, newPath, oldPath));
+
 		} else {
-			Path newPath = nodeToPath(newChild);
-			node = createNode(newPath); // TODO don't create node this way
-			fileEvents.add(new FileEvent(EventType.FILE_ADDED, newPath, null));
+
+			// node is new
+			node = newChild;
 			oldDir.children.add(node);
 			node.parent = oldDir;
-			// TODO if newChild is a dir send events for its subtree
 			Collections.sort(oldDir.children, byNameComparator);
-			oldInodes.put(newChild.inode, node);
+			oldInodes.put(node.inode, node);
+			Path path = nodeToPath(node);
+			fileEvents.add(new FileEvent(EventType.FILE_ADDED, path, null));
+			if(node instanceof DirNode) {
+				for(Node child: new ArrayList<>(((DirNode)node).children)) {
+					handleMovedToDirOrAdded(oldInodes, child, (DirNode)node, fileEvents);
+				}
+			}
+
 		}
 	}
 
 	private void handleMovedFromDirOrDeleted(Map<Long, Node> newInodes, Map<Long, Node> oldInodes, Node oldChild,
 											 DirNode oldDir, List<FileEvent> fileEvents) {
-		if(newInodes.containsKey(oldChild.inode)) {
-			// todo -- moved from this dir
-		} else {
+
+		if(!newInodes.containsKey(oldChild.inode)) {
+
+			// node was deleted
 			fileEvents.add(new FileEvent(EventType.FILE_DELETED, nodeToPath(oldChild), null));
 			oldDir.children.remove(oldChild);
 			oldInodes.remove(oldChild.inode);
-		}
+			if(oldChild instanceof DirNode) {
+				for(Node child: new ArrayList<>(((DirNode)oldChild).children)) {
+					handleMovedFromDirOrDeleted(newInodes, oldInodes, child, (DirNode)oldChild, fileEvents);
+				}
+			}
+
+		} /* else {
+
+			// node was moved from current dir
+			do nothing, this case will be or was already processed by "node was moved to current dir"
+			in handleMovedToDirOrAdded()
+
+		} */
 	}
 
 
@@ -193,8 +224,6 @@ class FileTree {
 	}
 
 	private Node createNode(Path path) {
-
-//System.out.println(">> " + path); // TODO delete
 
 		Node node;
 		PathInfo info;

@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
 public class TreeWatcher {
@@ -131,9 +130,9 @@ new MonitorThread().start();
 		public void run() {
 			while(!this.isInterrupted()) {
 				try {
-					Thread.sleep(5000);
+					Thread.sleep(1000);
 					FileTree newTree = new FileTree(rootDir, followLinks, ignorePatterns);
-					List<FileEvent> changes =  tree.getChanges(newTree);
+					List<FileEvent> changes =  tree.updateAndGetChanges(newTree);
 					for (TreeListener listener: listeners) {
 						for(FileEvent event: changes) {
 							listener.fileChanged(event);
@@ -166,11 +165,11 @@ new MonitorThread().start();
 
 		long start = System.currentTimeMillis();
 		System.out.println("Working...");
-		TreeWatcher watcher = new TreeWatcher(Paths.get(/**/"/home/rafael/Desktop/testingDir"/*/"../../.."/**/), true, "/home/rafael/Desktop/testingDir/\\..*");
+		TreeWatcher watcher = new TreeWatcher(Paths.get(/**/"/home/villarr/alt/test/testingDir"/*/"../../.."/**/), true, "/home/villarr/alt/test/testingDir/\\..*");
 		watcher.addListener(new TreeListener() {
 			@Override
 			public void fileChanged(FileEvent event) {
-				if(event.getType() == EventType.FILE_MOVED) {
+				if (event.getType() == EventType.FILE_MOVED) {
 					System.out.format(">> %s -- %s   -->   %s%n", event.getType().toString(), event.getOldPath(), event.getPath());
 				} else {
 					System.out.format(">> %s -- %s%n", event.getType().toString(), event.getPath());
