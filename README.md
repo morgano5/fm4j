@@ -32,5 +32,5 @@ to help you're more than welcome.
 
 * Analyze the possibility of using iteration instead of recursion in some methods in FileTree.java
 * Would it be useful not to modify the "newer" tree and leaving it intact without reusing it?
-
+* Write javadoc
 

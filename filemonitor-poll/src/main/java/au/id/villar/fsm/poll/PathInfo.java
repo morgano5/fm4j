@@ -1,7 +1,7 @@
 package au.id.villar.fsm.poll;
 
 @SuppressWarnings("unused")
-public class PathInfo {
+class PathInfo {
 
 	private static int S_IFMT    = 0x170000;   // bit mask for the file type bit fields
 	private static int S_IFSOCK  = 0x140000;   // socket
@@ -55,8 +55,8 @@ public class PathInfo {
 	private char type;
 	private int majorContaining;
 	private int minorContaining;
-	private int major;
-	private int minor;
+	private int majorNumber;
+	private int minorNumber;
 
 	public int getContainingDeviceId() {
 		return containingDeviceId;
@@ -157,8 +157,8 @@ public class PathInfo {
 				", type=" + type +
 				", majorContaining=" + majorContaining +
 				", minorContaining=" + minorContaining +
-				", major=" + major +
-				", minor=" + minor +
+				", majorNumber=" + majorNumber +
+				", minorNumber=" + minorNumber +
 				'}';
 	}
 }

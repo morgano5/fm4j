@@ -155,8 +155,8 @@ JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_FileTree_getInfo
 	jfieldID type = (*env)->GetFieldID(env, clazz, "type", "C");
 	jfieldID major_containing = (*env)->GetFieldID(env, clazz, "majorContaining", "I");
 	jfieldID minor_containing = (*env)->GetFieldID(env, clazz, "minorContaining", "I");
-	jfieldID major = (*env)->GetFieldID(env, clazz, "major", "I");
-	jfieldID minor = (*env)->GetFieldID(env, clazz, "minor", "I");
+	jfieldID major_number = (*env)->GetFieldID(env, clazz, "majorNumber", "I");
+	jfieldID minor_number = (*env)->GetFieldID(env, clazz, "minorNumber", "I");
 
 	char raw_type = 0;
 	if(S_ISREG(buffer.st_mode)) raw_type = 'F';
@@ -183,8 +183,8 @@ JNIEXPORT jobject JNICALL Java_au_id_villar_fsm_poll_FileTree_getInfo
 	(*env)->SetCharField(env, node, type, raw_type);
 	(*env)->SetIntField(env, node, major_containing, major(buffer.st_dev));
 	(*env)->SetIntField(env, node, minor_containing, minor(buffer.st_dev));
-	(*env)->SetIntField(env, node, major, major(buffer.st_rdev));
-	(*env)->SetIntField(env, node, minor, minor(buffer.st_rdev));
+	(*env)->SetIntField(env, node, major_number, major(buffer.st_rdev));
+	(*env)->SetIntField(env, node, minor_number, minor(buffer.st_rdev));
 
 	return node;
 }
