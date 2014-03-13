@@ -1,9 +1,9 @@
 # fm4j
 
-File monitoring library for Java. The goal of this is provide a library with
-file monitoring capabilities to solve some problems I found on existing
-solutions. I needed a way to monitor a huge tree of directories for adding,
-deleting, changing AND moving files.
+File monitoring library for Java in Linux. The goal of this is provide a
+library with file monitoring capabilities to solve some problems I found on
+existing solutions. I needed a way to monitor a huge tree of directories for
+adding, deleting, changing AND moving files.
 
 The reason I couldn't use Jnotify is that it is based on Linux inofity calls
 that depend on kernel memory, which runs out very quickly when trying to
