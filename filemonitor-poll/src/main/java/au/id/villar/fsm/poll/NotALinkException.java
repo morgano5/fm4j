@@ -1,5 +1,8 @@
 package au.id.villar.fsm.poll;
 
+/**
+ *
+ */
 @SuppressWarnings("unused")
 public class NotALinkException extends LinuxNativeErrorException {
 

@@ -63,6 +63,11 @@ public class TreeWatcher {
 
 	private MonitorThread monitorThread;
 
+	/**
+	 *
+	 * @param rootDir
+	 * @param followLinks
+	 */
 	public TreeWatcher(Path rootDir, boolean followLinks) {
 		this.rootDir = rootDir;
 		this.followLinks = followLinks;
@@ -70,6 +75,12 @@ public class TreeWatcher {
 		tree = new FileTree(rootDir, followLinks, ignorePatterns);
 	}
 
+	/**
+	 *
+	 * @param rootDir
+	 * @param followLinks
+	 * @param ignorePatterns
+	 */
 	public TreeWatcher(Path rootDir, boolean followLinks, String ... ignorePatterns) {
 		this.rootDir = rootDir;
 		this.followLinks = followLinks;
@@ -81,6 +92,12 @@ public class TreeWatcher {
 		tree = new FileTree(rootDir, followLinks, this.ignorePatterns);
 	}
 
+	/**
+	 *
+	 * @param rootDir
+	 * @param followLinks
+	 * @param ignorePatterns
+	 */
 	public TreeWatcher(Path rootDir, boolean followLinks, Pattern ... ignorePatterns) {
 		this.rootDir = rootDir;
 		this.followLinks = followLinks;
@@ -88,6 +105,9 @@ public class TreeWatcher {
 		tree = new FileTree(rootDir, followLinks, ignorePatterns);
 	}
 
+	/**
+	 *
+	 */
 	public synchronized void start() {
 		if(monitorThread == null || !monitorThread.isAlive() || monitorThread.isInterrupted()) {
 			monitorThread = new MonitorThread();
@@ -95,6 +115,9 @@ public class TreeWatcher {
 		}
 	}
 
+	/**
+	 *
+	 */
 	public synchronized void stop() {
 		if(monitorThread != null && monitorThread.isAlive() && !monitorThread.isInterrupted()) {
 			monitorThread.interrupt();
@@ -102,12 +125,21 @@ public class TreeWatcher {
 		}
 	}
 
+	/**
+	 *
+	 * @param listener
+	 */
 	public void addListener(TreeListener listener) {
 		synchronized(listeners) {
 			listeners.add(listener);
 		}
 	}
 
+	/**
+	 *
+	 * @param listener
+	 * @return
+	 */
 	public boolean removeListener(TreeListener listener) {
 		synchronized(listeners) {
 			return listeners.remove(listener);

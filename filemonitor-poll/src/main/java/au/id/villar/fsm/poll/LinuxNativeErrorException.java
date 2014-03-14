@@ -1,6 +1,8 @@
 package au.id.villar.fsm.poll;
 
-@SuppressWarnings("unused")
+/**
+ *
+ */
 public class LinuxNativeErrorException extends RuntimeException {
 
 	public static final int EPERM =           1;      /* Operation not permitted */

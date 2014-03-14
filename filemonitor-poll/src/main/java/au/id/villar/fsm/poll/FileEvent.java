@@ -2,6 +2,9 @@ package au.id.villar.fsm.poll;
 
 import java.nio.file.Path;
 
+/**
+ *
+ */
 public class FileEvent {
 
 	private final EventType type;
