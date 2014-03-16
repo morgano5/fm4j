@@ -1,7 +1,7 @@
 package au.id.villar.fsm.poll;
 
 /**
- *
+ * Exception thrown if an error in the native interface is detected.
  */
 public class LinuxNativeErrorException extends RuntimeException {
 
